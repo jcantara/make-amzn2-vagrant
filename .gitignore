@@ -5,5 +5,5 @@
 *.vbox-prev
 *.log
 .vagrant
-vagrant/amzn2base
+/vagrant
 virtualbox/user-data
