@@ -1,0 +1,20 @@
+#cloud-config
+#vim:syntax=yaml
+
+users:
+# A user by the name `ec2-user` is created in the image by default.
+  - default
+
+write_files:
+  - path: /etc/cloud/cloud.cfg.d/80_disable_network_after_firstboot.cfg
+    content: |
+      # Disable network configuration after first boot
+      network:
+        config: disabled
+# 'UseDNS no' because amazon linux 2 by default doesn't have a configured dns resolver, and it's very slow without this option
+  - path: /etc/ssh/sshd_config
+    content: |
+        UseDNS no
+    append: true
+# Write user's ~/.ssh/id_rsa.pub to a yaml list at the end of the file
+ssh_authorized_keys:

@@ -1,0 +1,9 @@
+*.vdi
+*.swp
+*.iso
+*.vbox
+*.vbox-prev
+*.log
+.vagrant
+vagrant/amzn2base
+virtualbox/user-data
