@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := vagrant
-.PHONY: virtualbox vagrant clean
+.PHONY: virtualbox vagrant clean test
 
 VBOX_VERSION := $(shell vboxmanage -v | cut -d'_' -f1)
 LATEST_AMZN2_VDI := $(shell curl -sL "https://cdn.amazonlinux.com/os-images/latest/virtualbox/" | xmllint --html -xpath "//a[substring(@href, string-length(@href) - string-length('.vdi') +1) = '.vdi']/@href" - | cut -d'"' -f2)
@@ -55,9 +55,13 @@ virtualbox/amzn2raw/amzn2raw.vbox: virtualbox/amzn2raw-virtualbox.vdi virtualbox
 
 virtualbox: virtualbox/amzn2raw/amzn2raw.vbox
 
-vagrant/amzn2base: virtualbox/amzn2raw/amzn2raw.vbox
-	vagrant box remove --all ./vagrant/amzn2base || true
-	rm vagrant/amzn2base || true
+vagrant/:
+	mkdir vagrant
+
+vagrant/amzn2base: vagrant/ virtualbox/amzn2raw/amzn2raw.vbox
 	cd vagrant; vagrant package --base amzn2raw --output amzn2base
 
 vagrant: vagrant/amzn2base
+
+test:
+	cd test; docker run --workdir "/app" -v `pwd`:/app -v ${HOME}/.ssh:/root/.ssh -v ${SSH_AUTH_SOCK}:/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent --net host --rm -it ruby /bin/bash -c "bundle install --deployment; bundle exec rake"
