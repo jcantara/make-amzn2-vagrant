@@ -5,6 +5,6 @@
 *.vbox-prev
 *.log
 .vagrant
-/vagrant
+vagrant/amzn2base
 virtualbox/user-data
 test/vendor

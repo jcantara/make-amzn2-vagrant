@@ -3,6 +3,7 @@
 
 VBOX_VERSION := $(shell vboxmanage -v | cut -d'_' -f1)
 LATEST_AMZN2_VDI := $(shell curl -sL "https://cdn.amazonlinux.com/os-images/latest/virtualbox/" | xmllint --html -xpath "//a[substring(@href, string-length(@href) - string-length('.vdi') +1) = '.vdi']/@href" - | cut -d'"' -f2)
+AMZN2_VERSION := $(shell echo "$(LATEST_AMZN2_VDI)" | cut -d'-' -f3)
 
 clean:
 	vboxmanage controlvm amzn2raw poweroff || true
@@ -11,9 +12,7 @@ clean:
 	rm virtualbox/seed.iso || true
 	rm virtualbox/amzn2raw-virtualbox.vdi || true
 	rm -rf virtualbox/amzn2raw || true
-	vagrant box remove --all ./vagrant/amzn2base || true
 	rm vagrant/amzn2base || true
-	vagrant global-status --prune || true
 
 virtualbox/user-data: virtualbox/user-data-no-keys
 	cp virtualbox/user-data-no-keys virtualbox/user-data
@@ -46,8 +45,8 @@ virtualbox/amzn2raw/amzn2raw.vbox: virtualbox/amzn2raw-virtualbox.vdi virtualbox
 	sleep 5 # have had several strange occurrences where settings from above don't seem to be applied when running startvm below, waiting a few seconds for virtualbox to catch up addresses it
 	vboxmanage startvm --type headless amzn2raw
 	ssh -p 2222 -o 'ConnectionAttempts 300' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ec2-user@localhost -- "sudo yum -y update && sudo -b sh -c 'sleep 1; reboot' && exit" # update everything and reboot in case kernel updates
-	sleep 15 # wait for reboot to have taken effect; this should better than a sleep but good enough for now
-	ssh -p 2222 -o 'ConnectionAttempts 300' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ec2-user@localhost -- "sudo mkdir /media/iso && sudo mount /dev/sr1 /media/iso/ && sudo yum -y install kernel-devel && sudo /media/iso/VBoxLinuxAdditions.run && sudo umount /media/iso && sudo rm -rf /media/iso && sudo -b sh -c 'sleep 1; shutdown -h now' && exit"
+	sleep 25 # wait for reboot to have taken effect; this should better than a sleep but good enough for now
+	ssh -p 2222 -o 'ConnectionAttempts 300' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ec2-user@localhost -- "sudo mkdir /media/iso && sudo mount /dev/sr1 /media/iso/ && sudo yum -y install kernel-devel && sudo /media/iso/VBoxLinuxAdditions.run && sudo umount /media/iso && sudo rm -rf /media/iso && sudo -b sh -c 'sleep 2; shutdown -h now' && exit"
 	sleep 15 # wait for shutdown; this should be better than a sleep but good enough for now
 	vboxmanage modifyvm amzn2raw --natpf1 delete "guestssh"
 	vboxmanage storageattach amzn2raw --storagectl "IDE Controller" --port 1 --device 1 --type dvddrive --medium emptydrive
@@ -62,6 +61,7 @@ vagrant/amzn2base: vagrant/ virtualbox/amzn2raw/amzn2raw.vbox
 	cd vagrant; vagrant package --base amzn2raw --output amzn2base
 
 vagrant: vagrant/amzn2base
+	vagrant box add --force --name amzn2base vagrant/amzn2base
 
 test:
-	cd test; docker run --workdir "/app" -v `pwd`:/app -v ${HOME}/.ssh:/root/.ssh -v ${SSH_AUTH_SOCK}:/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent --net host --rm -it ruby /bin/bash -c "bundle install --deployment; bundle exec rake"
+	cd test; vagrant up; docker run --workdir "/app" -v `pwd`:/app -v ${HOME}/.ssh:/root/.ssh -v ${SSH_AUTH_SOCK}:/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent --net host --rm -it ruby /bin/bash -c "bundle install --deployment; bundle exec rake"; vagrant destroy -f
